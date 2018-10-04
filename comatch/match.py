@@ -231,7 +231,11 @@ def match_components(nodes_x, nodes_y, edges_xy, node_labels_x, node_labels_y):
 
     num_splits = solution[splits]
     num_merges = solution[merges]
-    matches = [ e for e in edges_xy if solution[edge_indicators[e]] > 0.5 ]
+    matches = [
+        e
+        for e in edges_xy
+        if solution[edge_indicators[e]] > 0.5 and no_match_node not in e
+    ]
 
     # some of the split/merge errors are FPs/FNs
 
