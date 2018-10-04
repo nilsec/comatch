@@ -3,7 +3,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def match_components(nodes_x, nodes_y, edges_xy, node_labels_x, node_labels_y):
+def match_components(
+        nodes_x, nodes_y,
+        edges_xy,
+        node_labels_x, node_labels_y,
+        allow_many_to_many=False):
     '''Match nodes from X to nodes from Y by selecting candidate edges x <-> y,
     such that the split/merge error induced from the labels for X and Y is
     minimized.
@@ -60,6 +64,11 @@ def match_components(nodes_x, nodes_y, edges_xy, node_labels_x, node_labels_y):
 
             A dictionary from IDs to labels.
 
+        allow_many_to_many (``bool``, optional):
+
+            If ``True``, allow that one node in X can match to multiple nodes
+            in Y and vice versa. Default is ``False``.
+
     Returns:
 
         (matches, num_splits, num_merges, num_fps, num_fns)
@@ -101,8 +110,9 @@ def match_components(nodes_x, nodes_y, edges_xy, node_labels_x, node_labels_y):
         edges_by_node_x[u].append(edge)
         edges_by_node_y[v].append(edge)
 
-    # require that each node matches to exactly one other node (except for
-    # dummy nodes, which can match to any number)
+    # Require that each node matches to exactly one (or at least one, depending
+    # on the allow_many_to_many parameter) other node. Dummy nodes can match to
+    # any number.
 
     constraints = pylp.LinearConstraints()
 
@@ -117,7 +127,10 @@ def match_components(nodes_x, nodes_y, edges_xy, node_labels_x, node_labels_y):
             constraint = pylp.LinearConstraint()
             for edge in edges_by_node[node]:
                 constraint.set_coefficient(edge_indicators[edge], 1)
-            constraint.set_relation(pylp.Relation.Equal)
+            if allow_many_to_many:
+                constraint.set_relation(pylp.Relation.GreaterEqual)
+            else:
+                constraint.set_relation(pylp.Relation.Equal)
             constraint.set_value(1)
             constraints.add(constraint)
 

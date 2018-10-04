@@ -48,3 +48,28 @@ if __name__ == "__main__":
     print("merges: %d"%merges)
     print("fps   : %d"%fps)
     print("fns   : %d"%fns)
+
+    # test many-to-many matching
+
+    nodes_x = [1, 2, 3, 4]
+    nodes_y = [10, 20, 30]
+    edges_xy = [
+        (1, 10),
+        (2, 20),
+        (3, 20),
+        (4, 30)
+    ]
+    node_labels_x = { 1: 1, 2: 1, 3: 1, 4: 1 }
+    node_labels_y = { 10: 10, 20: 10, 30: 10 }
+
+    matches, splits, merges, fps, fns = comatch.match_components(
+        nodes_x, nodes_y,
+        edges_xy,
+        node_labels_x, node_labels_y,
+        allow_many_to_many=True)
+
+    print(matches)
+    print("splits: %d"%splits)
+    print("merges: %d"%merges)
+    print("fps   : %d"%fps)
+    print("fns   : %d"%fns)
