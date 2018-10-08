@@ -71,10 +71,17 @@ def match_components(
 
     Returns:
 
-        (matches, num_splits, num_merges, num_fps, num_fns)
+        (label_matches, node_matches, num_splits, num_merges, num_fps, num_fns)
 
-        ``matches``: A list of tuples ``(id_x, id_y)`` of selected edges.
-        Subset of ``edges_xy``.
+        ``label_matches``: A list of tuples ``(label_x, label_y)`` of labels
+        that got matched.
+
+        ``node_matches``: A list of tuples ``(id_x, id_y)`` of nodes that got
+        matched. Subset of ``edges_xy``.
+
+        ``num_splits``, ``num_merges``, ...: The number of label splits,
+        merges, false positives (unmatched in X), and false negatives
+        (unmatched in Y).
     '''
 
     num_vars = 0
@@ -242,16 +249,26 @@ def match_components(
     if 'NOT' in message:
         raise RuntimeError("No optimal solution found...")
 
-    num_splits = solution[splits]
-    num_merges = solution[merges]
-    matches = [
+    # get label matches
+
+    label_matches = []
+    for label_pair, label_indicator in label_indicators.items():
+        if no_match_node not in label_pair:
+            if solution[label_indicator] > 0.5:
+                label_matches.append(label_pair)
+
+    # get node matches
+
+    node_matches = [
         e
         for e in edges_xy
         if solution[edge_indicators[e]] > 0.5 and no_match_node not in e
     ]
 
-    # some of the split/merge errors are FPs/FNs
+    # get error counts
 
+    num_splits = solution[splits]
+    num_merges = solution[merges]
     num_fps = 0
     num_fns = 0
     for label_pair, label_indicator in label_indicators.items():
@@ -264,4 +281,4 @@ def match_components(
     num_splits -= num_fps
     num_merges -= num_fns
 
-    return (matches, num_splits, num_merges, num_fps, num_fns)
+    return (label_matches, node_matches, num_splits, num_merges, num_fps, num_fns)
