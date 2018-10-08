@@ -1,3 +1,4 @@
+from __future__ import division
 import pylp
 import logging
 
@@ -7,7 +8,9 @@ def match_components(
         nodes_x, nodes_y,
         edges_xy,
         node_labels_x, node_labels_y,
-        allow_many_to_many=False):
+        allow_many_to_many=False,
+        edge_costs=None,
+        no_match_costs=0):
     '''Match nodes from X to nodes from Y by selecting candidate edges x <-> y,
     such that the split/merge error induced from the labels for X and Y is
     minimized.
@@ -52,7 +55,7 @@ def match_components(
 
     Args:
 
-        nodes_x, nodes_y (array-like):
+        nodes_x, nodes_y (array-like of ``int``):
 
             A list of IDs of set X and Y, respectively.
 
@@ -69,6 +72,26 @@ def match_components(
             If ``True``, allow that one node in X can match to multiple nodes
             in Y and vice versa. Default is ``False``.
 
+        edge_costs (array-like of ``float``, optional):
+
+            If given, defines a preference for selecting edges from
+            ``edges_xy`` by contributing costs ``edge_costs[i]`` for edge
+            ``edges_xy[i]``.
+
+            The edge costs form a secondary objective, i.e., the matching is
+            still performed to minimize the total number of errors (splits,
+            merges, FPs, and FNs). However, for matching problems where several
+            solutions exist with the same number of errors, the edge costs
+            define a preference (e.g., by favouring matches between nodes that
+            are spatially close, if the edge costs represent distances).
+
+            See also ``no_match_costs``.
+
+        no_match_costs (``float``, optional):
+
+            A cost for not matching a node either in X or Y. Complementary to
+            ``edge_costs``.
+
     Returns:
 
         (label_matches, node_matches, num_splits, num_merges, num_fps, num_fns)
@@ -83,6 +106,9 @@ def match_components(
         merges, false positives (unmatched in X), and false negatives
         (unmatched in Y).
     '''
+
+    if edge_costs is None and no_match_costs != 0:
+        edge_costs = [ 0 ]*len(edges_xy)
 
     num_vars = 0
 
@@ -221,6 +247,20 @@ def match_components(
     objective.set_coefficient(splits, 1)
     objective.set_coefficient(merges, 1)
 
+    if edge_costs is not None:
+
+        edge_costs, no_match_costs = normalize_matching_costs(
+            len(nodes_x), len(nodes_y),
+            edge_costs,
+            no_match_costs)
+
+        edge_costs += [ no_match_costs ]*(len(nodes_x) + len(nodes_y))
+
+        for edge, cost in zip(edges_xy, edge_costs):
+            objective.set_coefficient(
+                edge_indicators[edge],
+                cost)
+
     # solve
 
     logger.debug("Added %d constraints", len(constraints))
@@ -282,3 +322,22 @@ def match_components(
     num_merges -= num_fns
 
     return (label_matches, node_matches, num_splits, num_merges, num_fps, num_fns)
+
+def normalize_matching_costs(
+        num_nodes_x, num_nodes_y,
+        edge_costs,
+        no_match_costs):
+    '''Scale the edge costs and no-match costs such that they do not exceed 1
+    in the worst case. This is to ensure that the ILP first minimizes
+    topological errors, then matching costs.'''
+
+    # the sum of all edge costs is an upper bound on the actual edge costs
+    total_edge_costs = (
+        sum(edge_costs) +
+        (num_nodes_x + num_nodes_y)*no_match_costs
+    )
+
+    edge_costs = [ c/total_edge_costs for c in edge_costs ]
+    no_match_costs /= total_edge_costs
+
+    return edge_costs, no_match_costs
