@@ -254,10 +254,9 @@ def match_components(
             len(nodes_x), len(nodes_y),
             edge_costs,
             no_match_costs)
-
-        min_edge_cost = min(edge_costs)
-        
+    
         edge_costs += [ no_match_costs ]*(len(nodes_x) + len(nodes_y))
+        min_edge_cost = min(edge_costs)
 
         for edge, cost in zip(edges_xy, edge_costs):
             objective.set_coefficient(
