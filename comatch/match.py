@@ -10,7 +10,9 @@ def match_components(
         node_labels_x, node_labels_y,
         allow_many_to_many=False,
         edge_costs=None,
-        no_match_costs=0):
+        no_match_costs=0,
+        edge_conflicts=None):
+
     '''Match nodes from X to nodes from Y by selecting candidate edges x <-> y,
     such that the split/merge error induced from the labels for X and Y is
     minimized.
@@ -91,6 +93,11 @@ def match_components(
 
             A cost for not matching a node either in X or Y. Complementary to
             ``edge_costs``.
+
+        edge_conflicts(``list of lists of tuples (id_x, id_y)`` of edges_xy, optional):
+            Each list in edge conflicts should contain edges_xy that are in conflict
+            with each other. That is for each set of edges edge_conflicts[i] only one edge
+            is picked.
 
     Returns:
 
@@ -209,6 +216,16 @@ def match_components(
         constraints.add(constraint1)
         constraints.add(constraint2)
 
+    if edge_conflicts is not None:
+        for conflict in edge_conflicts:
+            constraint = pylp.LinearConstraint()
+            for edge in conflict:
+                constraint.set_coefficient(edge_indicators[tuple(edge)], 1)
+
+            constraint.set_relation(pylp.Relation.LessEqual)
+            constraint.set_value(1)
+            constraints.add(constraint)
+
     # pin no-match pair indicator to 1
     constraint = pylp.LinearConstraint()
     no_match_indicator = label_indicators[(no_match_label, no_match_label)]
@@ -278,7 +295,7 @@ def match_components(
     if min_edge_cost is not None:
         logger.debug("Set optimality gap to lowest edge cost")
         epsilon = 10**(-4)
-        solver.set_optimality_gap(max(min_edge_cost - epsilon, 0.0), True)
+        solver.set_optimality_gap(max([min_edge_cost - epsilon, 0.0]), True)
 
     logger.debug("Initializing solver with %d variables", num_vars)
     solver.initialize(num_vars, pylp.VariableType.Binary, variable_types)
